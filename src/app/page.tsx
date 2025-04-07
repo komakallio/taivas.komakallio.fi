@@ -42,7 +42,7 @@ export default function Home() {
           style={{ cursor: 'pointer' }}
         >
           <Image
-            src={`https://taivas.komakallio.fi/images/latest.jpg?t=${imageTimestamp}`}
+            src={`/images/latest.jpg?t=${imageTimestamp}`}
             alt="Latest image from Komakallio Observatory"
             fill
             sizes="(max-width: 1200px) 90vw, 1200px"

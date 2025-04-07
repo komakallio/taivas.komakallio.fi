@@ -4,6 +4,7 @@ import next from 'next';
 import { WebSocketServer, WebSocket as WSWebSocket } from 'ws';
 import chokidar from 'chokidar';
 import path from 'path';
+import fs from 'fs';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -22,6 +23,30 @@ const getImagePath = () => {
 app.prepare().then(() => {
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);
+    
+    // Handle static file serving for /images path
+    if (parsedUrl.pathname?.startsWith('/images/')) {
+      const filePath = path.join('/var/www/allsky/images', parsedUrl.pathname.slice('/images/'.length));
+      
+      // Check if file exists
+      fs.access(filePath, fs.constants.F_OK, (err) => {
+        if (err) {
+          res.writeHead(404);
+          res.end('File not found');
+          return;
+        }
+
+        // Set appropriate headers
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        // Stream the file
+        const stream = fs.createReadStream(filePath);
+        stream.pipe(res);
+      });
+      return;
+    }
+
     handle(req, res, parsedUrl);
   });
 
@@ -38,6 +63,10 @@ app.prepare().then(() => {
   const watcher = chokidar.watch(imagePath, {
     persistent: true,
     interval: 5000, // Check every 5 seconds
+    awaitWriteFinish: {
+      stabilityThreshold: 2000,
+      pollInterval: 100
+    }
   });
 
   // Store connected clients
