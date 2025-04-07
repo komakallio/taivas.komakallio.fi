@@ -6,6 +6,7 @@
     "dev": "ts-node src/server/index.ts",
     "build": "next build",
     "start": "node server.js",
+    "build-container": "colima build -t taivas-komakallio-fi .",
     "lint": "next lint"
   },
   "dependencies": {
