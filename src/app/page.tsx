@@ -41,13 +41,10 @@ export default function Home() {
           onClick={() => setIsZoomed(!isZoomed)}
           style={{ cursor: 'pointer' }}
         >
-          <Image
+          <img
             src={`/images/latest.jpg?t=${imageTimestamp}`}
             alt="Latest image from Komakallio Observatory"
-            fill
-            sizes="(max-width: 1200px) 90vw, 1200px"
-            className="object-contain"
-            priority
+            className="object-contain w-full h-full"
           />
         </div>
       </div>

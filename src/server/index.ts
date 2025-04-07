@@ -34,12 +34,15 @@ app.prepare().then(() => {
 
     // Handle static image serving
     if (pathname?.startsWith('/images/')) {
-      const imagePath = path.join(getImageDir(), pathname.replace('/images/', ''));
+      const filename = pathname.split('/').pop();
+      const imagePath = path.join(getImageDir(), filename || '');
+      console.log(`Attempting to serve image from: ${imagePath}`);
       
       // Check if file exists
       fs.access(imagePath, fs.constants.F_OK, (err) => {
         if (err) {
           console.error(`File not found: ${imagePath}`);
+          console.error(`Error details:`, err);
           res.writeHead(404);
           res.end('Not Found');
           return;
@@ -63,6 +66,10 @@ app.prepare().then(() => {
 
           // Stream the file
           const stream = fs.createReadStream(imagePath);
+          stream.on('error', (err) => {
+            console.error(`Error streaming file: ${err}`);
+            res.end();
+          });
           stream.pipe(res);
         });
       });
@@ -95,6 +102,8 @@ app.prepare().then(() => {
   // Watch for file changes
   const imagePath = getImagePath();
   console.log(`Watching for changes in: ${imagePath}`);
+  console.log(`Development mode: ${dev}`);
+  console.log(`Image directory: ${getImageDir()}`);
 
   const watcher = chokidar.watch(imagePath, {
     awaitWriteFinish: {
