@@ -35,6 +35,69 @@ function getImageDir() {
   return '/var/www/allsky/images';
 }
 
+// Function to serve directory index or static files
+function serveDirectory(basePath: string, urlPath: string, res: ServerResponse) {
+  const fullPath = path.join(basePath, urlPath);
+  logger.debug(`Attempting to serve from: ${fullPath}`);
+
+  // Check if path exists
+  fs.stat(fullPath, (err, stats) => {
+    if (err) {
+      logger.error(`Path not found: ${fullPath}`, { error: err });
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
+
+    if (stats.isDirectory()) {
+      // Serve directory index
+      fs.readdir(fullPath, (err, files) => {
+        if (err) {
+          logger.error(`Error reading directory: ${err}`);
+          res.writeHead(500);
+          res.end('Internal Server Error');
+          return;
+        }
+
+        const html = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Directory Index</title>
+              <style>
+                body { font-family: sans-serif; margin: 2em; }
+                a { color: #0066cc; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+                li { margin: 0.5em 0; }
+              </style>
+            </head>
+            <body>
+              <h1>Directory Index</h1>
+              <ul>
+                ${files.map(file => {
+                  const isDir = fs.statSync(path.join(fullPath, file)).isDirectory();
+                  return `<li><a href="${file}${isDir ? '/' : ''}">${file}</a></li>`;
+                }).join('\n')}
+              </ul>
+            </body>
+          </html>
+        `;
+
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(html);
+      });
+    } else {
+      // Serve static file
+      const stream = fs.createReadStream(fullPath);
+      stream.on('error', (err) => {
+        logger.error(`Error streaming file: ${err}`);
+        res.end();
+      });
+      stream.pipe(res);
+    }
+  });
+}
+
 function serveImage(pathname: string, res: ServerResponse) {
   const filename = pathname.split('/').pop();
   const imagePath = path.join(getImageDir(), filename || '');
@@ -85,9 +148,19 @@ app.prepare().then(() => {
     // Log all incoming requests
     logger.info(`Incoming request: ${req.method} ${pathname}`);
 
-    // Handle static image serving
+    // Handle static file serving
     if (pathname?.startsWith('/images/')) {
-      return serveImage(pathname,res);
+      return serveImage(pathname, res);
+    }
+
+    // Handle videos directory
+    if (pathname?.startsWith('/videos/')) {
+      return serveDirectory('/Users/jsaukkon/Dropbox', pathname.replace('/videos/', ''), res);
+    }
+
+    // Handle keograms directory
+    if (pathname?.startsWith('/keograms/')) {
+      return serveDirectory('/var/www/allsky/keograms', pathname.replace('/keograms/', ''), res);
     }
 
     // Handle Next.js requests
