@@ -112,7 +112,7 @@ function serveImage(pathname: string, res: ServerResponse) {
       return;
     }
 
-    // Get file stats for content length
+    // Get file stats for content length and modification time
     fs.stat(imagePath, (err, stats) => {
       if (err) {
         logger.error(`Error getting file stats: ${err}`);
@@ -121,10 +121,26 @@ function serveImage(pathname: string, res: ServerResponse) {
         return;
       }
 
+      // Check If-Modified-Since header
+      const ifModifiedSince = res.req.headers['if-modified-since'];
+      if (ifModifiedSince) {
+        const lastModified = new Date(ifModifiedSince).getTime();
+        const fileModified = stats.mtime.getTime();
+        
+        // If file hasn't been modified, return 304
+        if (fileModified <= lastModified) {
+          logger.debug(`File not modified since ${ifModifiedSince}`);
+          res.writeHead(304);
+          res.end();
+          return;
+        }
+      }
+
       // Set appropriate headers
       res.writeHead(200, {
         'Content-Type': 'image/jpeg',
         'Content-Length': stats.size,
+        'Last-Modified': stats.mtime.toUTCString(),
         'Cache-Control': 'no-cache'
       });
 
@@ -155,7 +171,7 @@ app.prepare().then(() => {
 
     // Handle videos directory
     if (pathname?.startsWith('/videos/')) {
-      return serveDirectory('/Users/jsaukkon/Dropbox', pathname.replace('/videos/', ''), res);
+      return serveDirectory('/var/www/allsky/videos', pathname.replace('/videos/', ''), res);
     }
 
     // Handle keograms directory
