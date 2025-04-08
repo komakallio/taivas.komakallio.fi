@@ -37,5 +37,7 @@ ENV PORT=3000
 # Expose the port
 EXPOSE 3000
 
+USER nextjs
+
 # Start the application
 CMD ["npm", "run", "start"] 
