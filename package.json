@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node src/server/index.ts",
+    "dev": "ts-node src/server/server.ts",
     "build": "next build",
-    "start": "node server.js",
-    "build-container": "colima build -t taivas-komakallio-fi .",
+    "start": "ts-node server.ts",
+    "build-container": "docker build -t taivas-komakallio-fi .",
     "lint": "next lint"
   },
   "dependencies": {
@@ -14,6 +14,7 @@
     "next": "15.2.4",
     "react": "^18",
     "react-dom": "^18",
+    "winston": "^3.17.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {

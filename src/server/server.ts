@@ -5,10 +5,19 @@ import { WebSocketServer, WebSocket } from 'ws';
 import chokidar from 'chokidar';
 import path from 'path';
 import fs from 'fs';
+import logger from './logger';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
+
+logger.info('Starting server', {
+  dev,
+  environment: process.env.NODE_ENV,
+  currentWorkingDirectory: process.cwd(),
+  imageDirectory: getImageDir(),
+  imagePath: getImagePath()
+});
 
 // Function to get the correct image path based on environment
 function getImagePath() {
@@ -32,17 +41,19 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url!, true);
     const { pathname } = parsedUrl;
 
+    // Log all incoming requests
+    logger.info(`Incoming request: ${req.method} ${pathname}`);
+
     // Handle static image serving
     if (pathname?.startsWith('/images/')) {
       const filename = pathname.split('/').pop();
       const imagePath = path.join(getImageDir(), filename || '');
-      console.log(`Attempting to serve image from: ${imagePath}`);
+      logger.debug(`Attempting to serve image from: ${imagePath}`);
       
       // Check if file exists
       fs.access(imagePath, fs.constants.F_OK, (err) => {
         if (err) {
-          console.error(`File not found: ${imagePath}`);
-          console.error(`Error details:`, err);
+          logger.error(`File not found: ${imagePath}`, { error: err });
           res.writeHead(404);
           res.end('Not Found');
           return;
@@ -51,7 +62,7 @@ app.prepare().then(() => {
         // Get file stats for content length
         fs.stat(imagePath, (err, stats) => {
           if (err) {
-            console.error(`Error getting file stats: ${err}`);
+            logger.error(`Error getting file stats: ${err}`);
             res.writeHead(500);
             res.end('Internal Server Error');
             return;
@@ -67,7 +78,7 @@ app.prepare().then(() => {
           // Stream the file
           const stream = fs.createReadStream(imagePath);
           stream.on('error', (err) => {
-            console.error(`Error streaming file: ${err}`);
+            logger.error(`Error streaming file: ${err}`);
             res.end();
           });
           stream.pipe(res);
@@ -85,25 +96,29 @@ app.prepare().then(() => {
   const clients = new Set<WebSocket>();
 
   wss.on('connection', (ws: WebSocket) => {
-    console.log('New client connected');
+    logger.info('New client connected');
     clients.add(ws);
 
     ws.on('error', (error: Error) => {
-      console.error('WebSocket error:', error);
+      logger.error('WebSocket error', { error });
       clients.delete(ws);
     });
 
     ws.on('close', () => {
-      console.log('Client disconnected');
+      logger.info('Client disconnected');
       clients.delete(ws);
     });
   });
 
   // Watch for file changes
   const imagePath = getImagePath();
-  console.log(`Watching for changes in: ${imagePath}`);
-  console.log(`Development mode: ${dev}`);
-  console.log(`Image directory: ${getImageDir()}`);
+  logger.info('Starting file watcher', {
+    imagePath,
+    developmentMode: dev,
+    imageDirectory: getImageDir(),
+    currentWorkingDirectory: process.cwd(),
+    environment: process.env.NODE_ENV
+  });
 
   const watcher = chokidar.watch(imagePath, {
     awaitWriteFinish: {
@@ -113,7 +128,7 @@ app.prepare().then(() => {
   });
 
   watcher.on('change', (path) => {
-    console.log(`File changed: ${path}`);
+    logger.info(`File changed: ${path}`);
     const timestamp = Date.now();
     clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
@@ -125,7 +140,8 @@ app.prepare().then(() => {
   // Start the server
   const port = process.env.PORT || 3000;
   server.listen(port, () => {
-    console.log(`> Ready on http://localhost:${port}`);
-    console.log(`> Environment: ${dev ? 'development' : 'production'}`);
+    logger.info(`Server ready on http://localhost:${port}`, {
+      environment: dev ? 'development' : 'production'
+    });
   });
 }); 
