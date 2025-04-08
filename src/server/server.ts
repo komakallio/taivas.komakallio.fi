@@ -129,6 +129,7 @@ function serveDirectory(basePath: string, urlPath: string, res: ServerResponse) 
 function serveImage(pathname: string, res: ServerResponse) {
   const filename = pathname.split('/').pop();
   const imagePath = path.join(getImageDir(), filename || '');
+  const offlinePath = path.join(process.cwd(), 'public', 'offline.jpg');
   logger.debug(`Attempting to serve image from: ${imagePath}`);
   
   // Check if file exists
@@ -146,6 +147,38 @@ function serveImage(pathname: string, res: ServerResponse) {
         logger.error(`Error getting file stats: ${err}`);
         res.writeHead(500);
         res.end('Internal Server Error');
+        return;
+      }
+
+      // Check if image is too old (10 minutes)
+      const now = new Date();
+      const imageAge = now.getTime() - stats.mtime.getTime();
+      const maxAge = 10 * 60 * 1000; // 10 minutes in milliseconds
+
+      if (imageAge > maxAge) {
+        logger.info(`Image is too old (${imageAge}ms), serving offline image`);
+        // Serve offline image
+        fs.stat(offlinePath, (err, offlineStats) => {
+          if (err) {
+            logger.error(`Offline image not found: ${offlinePath}`, { error: err });
+            res.writeHead(404);
+            res.end('Not Found');
+            return;
+          }
+
+          res.writeHead(200, {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': offlineStats.size,
+            'Cache-Control': 'no-cache'
+          });
+
+          const stream = fs.createReadStream(offlinePath);
+          stream.on('error', (err) => {
+            logger.error(`Error streaming offline image: ${err}`);
+            res.end();
+          });
+          stream.pipe(res);
+        });
         return;
       }
 
