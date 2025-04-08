@@ -83,11 +83,39 @@ function serveDirectory(basePath: string, urlPath: string, res: ServerResponse) 
           </html>
         `;
 
-        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.writeHead(200, {
+          'Content-Type': 'text/html',
+          'Content-Length': Buffer.byteLength(html)
+        });
         res.end(html);
       });
     } else {
-      // Serve static file
+      // Get file extension for Content-Type
+      const ext = path.extname(fullPath).toLowerCase();
+      const contentType = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mov': 'video/quicktime',
+        '.pdf': 'application/pdf',
+        '.txt': 'text/plain',
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.json': 'application/json'
+      }[ext] || 'application/octet-stream';
+
+      // Set appropriate headers
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': stats.size,
+        'Last-Modified': stats.mtime.toUTCString()
+      });
+
+      // Stream the file
       const stream = fs.createReadStream(fullPath);
       stream.on('error', (err) => {
         logger.error(`Error streaming file: ${err}`);
