@@ -1,4 +1,4 @@
-import { createServer } from 'http';
+import { createServer, ServerResponse } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -35,6 +35,47 @@ function getImageDir() {
   return '/var/www/allsky/images';
 }
 
+function serveImage(pathname: string, res: ServerResponse) {
+  const filename = pathname.split('/').pop();
+  const imagePath = path.join(getImageDir(), filename || '');
+  logger.debug(`Attempting to serve image from: ${imagePath}`);
+  
+  // Check if file exists
+  fs.access(imagePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      logger.error(`File not found: ${imagePath}`, { error: err });
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
+
+    // Get file stats for content length
+    fs.stat(imagePath, (err, stats) => {
+      if (err) {
+        logger.error(`Error getting file stats: ${err}`);
+        res.writeHead(500);
+        res.end('Internal Server Error');
+        return;
+      }
+
+      // Set appropriate headers
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': stats.size,
+        'Cache-Control': 'no-cache'
+      });
+
+      // Stream the file
+      const stream = fs.createReadStream(imagePath);
+      stream.on('error', (err) => {
+        logger.error(`Error streaming file: ${err}`);
+        res.end();
+      });
+      stream.pipe(res);
+    });
+  });
+}
+
 // Initialize Next.js
 app.prepare().then(() => {
   const server = createServer((req, res) => {
@@ -46,45 +87,7 @@ app.prepare().then(() => {
 
     // Handle static image serving
     if (pathname?.startsWith('/images/')) {
-      const filename = pathname.split('/').pop();
-      const imagePath = path.join(getImageDir(), filename || '');
-      logger.debug(`Attempting to serve image from: ${imagePath}`);
-      
-      // Check if file exists
-      fs.access(imagePath, fs.constants.F_OK, (err) => {
-        if (err) {
-          logger.error(`File not found: ${imagePath}`, { error: err });
-          res.writeHead(404);
-          res.end('Not Found');
-          return;
-        }
-
-        // Get file stats for content length
-        fs.stat(imagePath, (err, stats) => {
-          if (err) {
-            logger.error(`Error getting file stats: ${err}`);
-            res.writeHead(500);
-            res.end('Internal Server Error');
-            return;
-          }
-
-          // Set appropriate headers
-          res.writeHead(200, {
-            'Content-Type': 'image/jpeg',
-            'Content-Length': stats.size,
-            'Cache-Control': 'no-cache'
-          });
-
-          // Stream the file
-          const stream = fs.createReadStream(imagePath);
-          stream.on('error', (err) => {
-            logger.error(`Error streaming file: ${err}`);
-            res.end();
-          });
-          stream.pipe(res);
-        });
-      });
-      return;
+      return serveImage(pathname,res);
     }
 
     // Handle Next.js requests

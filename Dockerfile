@@ -20,12 +20,15 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
 # Copy necessary files from builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/src/server/*ts ./
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/next ./node_modules/next
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ejs ./node_modules/ejs
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/*.json ./
 
 # Set environment variables
 ENV NODE_ENV=production
