@@ -1,23 +1,24 @@
 'use client';
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
+
+let ws: WebSocket | null = null;
 
 export default function Home() {
   const [isZoomed, setIsZoomed] = useState(false);
-  const [imageTimestamp, setImageTimestamp] = useState(Date.now());
   const [connected, setConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
   useEffect(() => {
-    let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
+    let heartbeatInterval: NodeJS.Timeout | null = null;
     const maxReconnectAttempts = 5;
     let reconnectAttempts = 0;
+    const heartbeatIntervalMs = 30000; // 30 seconds
 
     const connectWebSocket = () => {
-      if (ws) {
-        ws.close();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        return;
       }
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -25,9 +26,18 @@ export default function Home() {
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
         setConnected(true);
         reconnectAttempts = 0;
+        
+        // Start heartbeat
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+        }
+        heartbeatInterval = setInterval(() => {
+          if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, heartbeatIntervalMs);
       };
 
       ws.onmessage = (event) => {
@@ -37,9 +47,14 @@ export default function Home() {
         }
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.onclose = (event) => {
         setConnected(false);
+        
+        // Clear heartbeat interval
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
         
         // Only attempt to reconnect if we haven't exceeded max attempts
         if (reconnectAttempts < maxReconnectAttempts) {
@@ -59,13 +74,18 @@ export default function Home() {
 
     // Handle page visibility changes
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !connected) {
-        console.log('Page became visible, reconnecting WebSocket');
-        reconnectAttempts = 0; // Reset reconnect attempts
-        if (reconnectTimeout) {
-          clearTimeout(reconnectTimeout);
+      if (document.visibilityState === 'visible') {
+        // Force immediate image refresh
+        setLastUpdate(Date.now());
+        
+        // Reconnect WebSocket if disconnected
+        if (!connected) {
+          reconnectAttempts = 0; // Reset reconnect attempts
+          if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+          }
+          connectWebSocket();
         }
-        connectWebSocket();
       }
     };
 
@@ -77,6 +97,9 @@ export default function Home() {
       }
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
+      }
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };

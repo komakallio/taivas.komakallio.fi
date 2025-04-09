@@ -15,7 +15,27 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Komakallio Observatory",
-  description: "Komakallio Observatory web application",
+  description: "Live view from Komakallio, Kirkkonummi, Finland",
+  openGraph: {
+    title: "Komakallio Observatory",
+    description: "Live view from Komakallio, Kirkkonummi, Finland",
+    images: [
+      {
+        url: "/images/latest.jpg",
+        width: 1200,
+        height: 1200,
+        alt: "Latest image from Komakallio Observatory",
+      },
+    ],
+    type: "website",
+    siteName: "Komakallio Observatory",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Komakallio Observatory",
+    description: "Live view from Komakallio, Kirkkonummi, Finland",
+    images: ["/images/latest.jpg"],
+  },
 };
 
 export default function RootLayout({
