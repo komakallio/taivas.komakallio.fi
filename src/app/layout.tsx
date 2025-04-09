@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://taivas.komakallio.fi"),
   title: "Komakallio Observatory",
   description: "Live view from Komakallio, Kirkkonummi, Finland",
   openGraph: {
