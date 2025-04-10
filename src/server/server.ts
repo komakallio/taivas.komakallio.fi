@@ -108,20 +108,45 @@ function serveDirectory(basePath: string, urlPath: string, res: ServerResponse) 
         '.json': 'application/json'
       }[ext] || 'application/octet-stream';
 
-      // Set appropriate headers
-      res.writeHead(200, {
-        'Content-Type': contentType,
-        'Content-Length': stats.size,
-        'Last-Modified': stats.mtime.toUTCString()
-      });
+      // Handle range requests
+      const range = res.req.headers.range;
 
-      // Stream the file
-      const stream = fs.createReadStream(fullPath);
-      stream.on('error', (err) => {
-        logger.error(`Error streaming file: ${err}`);
-        res.end();
-      });
-      stream.pipe(res);
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
+        const chunksize = (end - start) + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${stats.size}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': contentType,
+          'Last-Modified': stats.mtime.toUTCString()
+        });
+
+        const stream = fs.createReadStream(fullPath, { start, end });
+        stream.on('error', (err) => {
+          logger.error(`Error streaming file: ${err}`);
+          res.end();
+        });
+        stream.pipe(res);
+      } else {
+        // Regular file serving
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': stats.size,
+          'Last-Modified': stats.mtime.toUTCString(),
+          'Accept-Ranges': 'bytes'
+        });
+
+        const stream = fs.createReadStream(fullPath);
+        stream.on('error', (err) => {
+          logger.error(`Error streaming file: ${err}`);
+          res.end();
+        });
+        stream.pipe(res);
+      }
     }
   });
 }
