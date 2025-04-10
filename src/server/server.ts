@@ -230,6 +230,14 @@ app.prepare().then(() => {
       return serveImage(pathname, res);
     }
 
+    if (pathname?.endsWith('/videos') || pathname?.endsWith('/keograms')) {
+      res.writeHead(301, {
+        'Location': pathname + '/'
+      });
+      res.end();
+      return;
+    }
+
     // Handle videos directory
     if (pathname?.startsWith('/videos/')) {
       return serveDirectory('/var/www/allsky/videos', pathname.replace('/videos/', ''), res);
