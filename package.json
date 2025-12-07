@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "chokidar": "^3.6.0",
-    "next": "15.2.4",
+    "next": "15.2.6",
     "react": "^18",
     "react-dom": "^18",
     "winston": "^3.17.0",
