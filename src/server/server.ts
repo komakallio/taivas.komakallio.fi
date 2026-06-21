@@ -211,7 +211,12 @@ function serveImage(pathname: string, res: ServerResponse) {
       const ifModifiedSince = res.req.headers['if-modified-since'];
       if (ifModifiedSince) {
         const lastModified = new Date(ifModifiedSince).getTime();
-        const fileModified = stats.mtime.getTime();
+        // Last-Modified (toUTCString) only has 1-second resolution, but the file
+        // mtime carries sub-second ms, so an unchanged file's mtime is a few
+        // hundred ms past the second it advertised and the comparison below never
+        // matched — every request fell through to a full 200 re-send. Floor the
+        // mtime to whole seconds so unchanged files correctly return 304.
+        const fileModified = Math.floor(stats.mtime.getTime() / 1000) * 1000;
         
         // If file hasn't been modified, return 304
         if (fileModified <= lastModified) {
